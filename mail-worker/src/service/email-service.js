@@ -127,7 +127,7 @@ const emailService = {
 
 	async send(c, params, userId) {
 
-		let { accountId, name, sendType, emailId, receiveEmail, manyType, text, content, subject, attachments } = params;
+		let { accountId, name, sendEmail, sendType, emailId, receiveEmail, manyType, text, content, subject, attachments } = params;
 
 		const { resendTokens, r2Domain, send } = await settingService.query(c);
 
@@ -157,7 +157,10 @@ const emailService = {
 			throw new BizError('分别发送暂时不支持附件');
 		}
 
-
+		if (sendEmail && !emailUtils.isValidEmail(sendEmail)) {
+        	throw new BizError('发件人邮箱格式不正确');
+    	}
+		
 		const userRow = await userService.selectById(c, userId);
 		const roleRow = await roleService.selectById(c, userRow.type);
 
@@ -186,7 +189,14 @@ const emailService = {
 			throw new BizError('发件人邮箱不存在');
 		}
 
-		const domain = emailUtils.getDomain(accountRow.email);
+		let domain = emailUtils.getDomain(accountRow.email);
+		// 管理员可以使用自定义发件人邮箱
+		if (c.env.admin === userRow.email){
+			domain = emailUtils.getDomain(sendEmail);
+		} else {
+			// 非管理员只能使用已注册的邮箱
+			sendEmail = accountRow.email;
+		}
 		const resendToken = resendTokens[domain];
 
 		if (!resendToken) {
@@ -199,7 +209,7 @@ const emailService = {
 		}
 
 		if (!name) {
-			name = emailUtils.getName(accountRow.email);
+			name = emailUtils.getName(sendEmail);
 		}
 
 		let emailRow = {
@@ -226,7 +236,7 @@ const emailService = {
 
 			receiveEmail.forEach(email => {
 				const sendForm = {
-					from: `${name} <${accountRow.email}>`,
+					from: `${name} <${sendEmail}>`,
 					to: [email],
 					subject: subject,
 					text: text,
@@ -248,7 +258,7 @@ const emailService = {
 		} else {
 
 			const sendForm = {
-				from: `${name} <${accountRow.email}>`,
+				from: `${name} <${sendEmail}>`,
 				to: [...receiveEmail],
 				subject: subject,
 				text: text,
@@ -278,7 +288,7 @@ const emailService = {
 		html = this.imgReplace(html, null, r2Domain);
 
 		const emailData = {};
-		emailData.sendEmail = accountRow.email;
+		emailData.sendEmail = sendEmail;
 		emailData.name = name;
 		emailData.subject = subject;
 		emailData.content = html;

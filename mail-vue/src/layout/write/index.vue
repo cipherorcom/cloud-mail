@@ -7,8 +7,13 @@
             <Icon icon="hugeicons:quill-write-01" width="28" height="28" />
           </span>
           <span class="sender">发件人:</span>
-          <span class="sender-name">{{form.name}}</span>
-          <span class="send-email"><{{form.sendEmail}}></span>
+          <el-input 
+            v-model="senderInput" 
+            placeholder="张三 <zhangsan@example.com>"
+            size="small"
+            style="flex: 1; margin-left: 8px;"
+            @blur="parseSenderInput"
+          />
         </div>
         <div @click="close" style="cursor: pointer;">
           <Icon icon="material-symbols-light:close-rounded" width="22" height="22"/>
@@ -110,6 +115,32 @@ const form = reactive({
   draftId: null,
 })
 
+const senderInput = ref('')
+
+// 解析发件人输入的函数
+function parseSenderInput() {
+  if (!senderInput.value.trim()) return
+
+  // 匹配格式：姓名 <邮箱> 或者 邮箱
+  const emailRegex = /<([^>]+)>/
+  const match = senderInput.value.match(emailRegex)
+  
+  if (match) {
+    // 有 <邮箱> 格式
+    form.sendEmail = match[1].trim()
+    form.name = senderInput.value.replace(emailRegex, '').trim()
+  } else {
+    // 只有邮箱或者其他格式
+    if (isEmail(senderInput.value.trim())) {
+      form.sendEmail = senderInput.value.trim()
+      form.name = senderInput.value.trim().split('@')[0] // 使用邮箱@前面部分作为姓名
+    } else {
+      // 如果不是邮箱格式，可能是只输入了姓名
+      form.name = senderInput.value.trim()
+    }
+  }
+}
+
 function addTagChange(val) {
 
   const emails = Array.from(new Set(
@@ -171,6 +202,27 @@ function chooseFile() {
 }
 
 async function sendEmail() {
+
+  // 解析发件人输入
+  parseSenderInput()
+
+  if (!form.sendEmail.trim()) {
+    ElMessage({
+      message: '发件人邮箱不能为空',
+      type: 'error',
+      plain: true,
+    })
+    return
+  }
+
+  if (!isEmail(form.sendEmail)) {
+    ElMessage({
+      message: '发件人邮箱格式不正确',
+      type: 'error',
+      plain: true,
+    })
+    return
+  }
 
   if (form.receiveEmail.length === 0) {
     ElMessage({
@@ -284,6 +336,7 @@ function resetForm() {
   backReply.subject = ''
   backReply.receiveEmail = []
   backReply.sendType = ''
+  senderInput.value = ''
   editor.value.clearEditor()
 }
 
@@ -345,6 +398,8 @@ function open() {
     form.accountId = accountStore.currentAccount.accountId;
     form.name = accountStore.currentAccount.name;
   }
+  // 设置输入框的默认值
+  senderInput.value = `${form.name} <${form.sendEmail}>`
   show.value = true;
   editor.value.focus()
 }
@@ -461,8 +516,8 @@ function close() {
       margin-bottom: 10px;
       .title-left {
         align-items: center;
-        display: grid;
-        grid-template-columns: auto auto auto 1fr;
+        display: flex; // 改为flex布局
+        flex: 1; // 占满剩余空间
       }
       .title-text {
       }
@@ -470,20 +525,6 @@ function close() {
       .sender {
         margin-left: 8px;
       }
-
-      .sender-name {
-        margin-left: 8px;
-        font-weight: bold;
-      }
-
-      .send-email {
-        color: #999896;
-        margin-left: 5px;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
-      }
-
 
       div {
         display: flex;

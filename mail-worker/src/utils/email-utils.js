@@ -18,7 +18,12 @@ const emailUtils = {
 		const { document } = parseHTML(content);
 		document.querySelectorAll('style, script, title').forEach(el => el.remove());
 		return document.documentElement.innerText;
-	}
+	},
+
+	isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
 };
 
 export default emailUtils;
